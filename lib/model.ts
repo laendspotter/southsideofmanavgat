@@ -1,5 +1,6 @@
 import { z } from 'zod';
-export const areas = ['gündoğdu','çolaklı','evrenseki','kumköy','side','manavgat'] as const;
+import { catalogHotels } from './catalog';
+export const areas = ['gündoğdu','çolaklı','evrenseki','kumköy','ılıca','side','manavgat'] as const;
 const text = (max:number) => z.string().trim().min(1).max(max);
 const url = z.union([z.literal(''),z.url().refine(v=>/^https?:\/\//.test(v),'nur http(s)-links')]);
 const day = z.number().int().min(0).max(6);
@@ -16,11 +17,8 @@ export type Bazaar = z.infer<typeof bazaarSchema> & {id:string;updatedAt:string}
 export type Review = z.infer<typeof reviewSchema> & {id:string;updatedAt:string;owner:string};
 export type Report = z.infer<typeof reportSchema> & {id:string;createdAt:string;owner:string;resolved?:boolean};
 export type History = {id:string;targetId:string;kind:string;at:string;summary:string;previous:unknown};
-export type State = {hotels:Hotel[];lines:Line[];bazaars:Bazaar[];reviews:Review[];reports:Report[];history:History[];limits:Record<string,{count:number;until:number}>};
-export function initialState():State {return {hotels:[
-{id:'dream-water-world',name:'dream water world',area:'kumköy',note:'hotelprofil angelegt · noch keine community-bewertungen',source:'https://dreamwaterworld.com.tr/en/',updatedAt:'2026-11-02T00:00:00Z'},
-{id:'dream-world-palace',name:'dream world palace',area:'çolaklı',note:'hotelprofil angelegt · noch keine community-bewertungen',source:'https://dreamworldpalace.com.tr/en/contact/',updatedAt:'2026-11-02T00:00:00Z'},
-{id:'side-stella-elite',name:'side stella elite',area:'kumköy',note:'hotelprofil angelegt · noch keine community-bewertungen',source:'https://www.sidestellaelite.com/contact.php?lang=en',updatedAt:'2026-11-02T00:00:00Z'}],lines:[],bazaars:[],reviews:[],reports:[],history:[],limits:{}};}
+export type State = {catalogHidden?:string[];hotels:Hotel[];lines:Line[];bazaars:Bazaar[];reviews:Review[];reports:Report[];history:History[];limits:Record<string,{count:number;until:number}>};
+export function initialState():State {return {hotels:catalogHotels.map(h=>({...h})),lines:[],bazaars:[],reviews:[],reports:[],history:[],limits:{}};}
 export class AppError extends Error {constructor(message:string,public status=400){super(message)}}
 export function mutate(s:State, input:Record<string,unknown>, owner:string, rateKey:string, admin=false):State {
  const now=Date.now(),at=new Date(now).toISOString(),kind=String(input.kind),action=String(input.action||'create');
@@ -30,7 +28,7 @@ export function mutate(s:State, input:Record<string,unknown>, owner:string, rate
  if(kind==='moderate'){
   if(!admin)throw new AppError('moderationsschlüssel fehlt oder ist falsch.',403);
   if(action==='resolve'){const report=s.reports.find(r=>r.id===input.id);if(!report)throw new AppError('meldung nicht gefunden.',404);report.resolved=true;return s;}
-  const target=String(input.id);for(const key of ['hotels','lines','bazaars','reviews'] as const){const item=s[key].find(x=>x.id===target);if(item){s.history.unshift({id:crypto.randomUUID(),targetId:target,kind:key,at,summary:'durch moderation entfernt',previous:item});(s[key] as {id:string}[])=s[key].filter(x=>x.id!==target);if(key==='hotels')s.reviews=s.reviews.filter(r=>r.hotelId!==target);return s;}}throw new AppError('beitrag nicht gefunden.',404);
+  const target=String(input.id);for(const key of ['hotels','lines','bazaars','reviews'] as const){const item=s[key].find(x=>x.id===target);if(item){s.history.unshift({id:crypto.randomUUID(),targetId:target,kind:key,at,summary:'durch moderation entfernt',previous:item});(s[key] as {id:string}[])=s[key].filter(x=>x.id!==target);if(key==='hotels'){s.reviews=s.reviews.filter(r=>r.hotelId!==target);s.catalogHidden=[...new Set([...(s.catalogHidden||[]),target])];}return s;}}throw new AppError('beitrag nicht gefunden.',404);
  }
  if(kind==='report') {const r=reportSchema.parse(input.data);if(![...s.hotels,...s.lines,...s.bazaars,...s.reviews].some(x=>x.id===r.targetId))throw new AppError('beitrag nicht gefunden.',404);if(s.reports.length>=2000)throw new AppError('meldebereich ist voll. moderation erforderlich.',503);s.reports.unshift({...r,id:crypto.randomUUID(),createdAt:at,owner});return s;}
  if(kind==='review') {const r=reviewSchema.parse(input.data);if(!s.hotels.some(h=>h.id===r.hotelId))throw new AppError('hotel nicht gefunden.',404);const existing=s.reviews.find(x=>x.hotelId===r.hotelId&&x.owner===owner);if(s.reviews.length>=2000&&!existing)throw new AppError('bewertungsbereich voll.',503);if(existing){s.history.unshift({id:crypto.randomUUID(),targetId:existing.id,kind,at,summary:'bewertung aktualisiert',previous:existing});s.reviews=s.reviews.filter(x=>x.id!==existing.id);}s.reviews.unshift({...r,id:existing?.id||crypto.randomUUID(),owner,updatedAt:at});return s;}

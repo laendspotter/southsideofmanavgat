@@ -52,13 +52,17 @@ Public writes are anonymous and rate-limited, not spam-proof. Before a broad lau
 
 Map data © OpenStreetMap contributors, https://www.openstreetmap.org/copyright. Tiles are loaded on demand from the standard OpenStreetMap server. Follow https://operations.osmfoundation.org/policies/tiles/ ; use a suitable tile provider before high traffic. There is no offline tile download or tracking. Lines are straight segments between user-defined points; no road-snapping, live arrivals or guaranteed departures.
 
-Initial hotel profiles (names and area only, no coordinates/ratings), checked 2026-11-02:
+The hotel catalogue now contains 128 source-linked profiles covering Gündoğdu, Çolaklı, Evrenseki, Kumköy, Ilıca and Side. Ilıca is kept as its own filter because the association directory uses this district name. No external guest ratings, star classifications or hotel photographs are copied.
 
-- Dream Water World, Kumköy: https://dreamwaterworld.com.tr/en/
-- Dream World Palace, Çolaklı: https://dreamworldpalace.com.tr/en/contact/
-- Side Stella Elite, Kumköy: https://www.sidestellaelite.com/contact.php?lang=en
+Primary factual directory sources (checked 2026-11-02):
 
-Hotel names, dates, routes and directions remain editable by the community. More hotels can be added freely. Bazaar days and transport times start blank instead of guessing real service.
+- MASTOB member directory: https://mastob.com.tr/uyelerimiz
+- MATOB regional directories: https://www.matob.org/otellerimiz/colakli/ , https://www.matob.org/otellerimiz/gundogdu/ , https://www.matob.org/otellerimiz/evrenseki/ , https://www.matob.org/otellerimiz/side/
+- Individual hotel websites linked in `lib/hotels.json` for supplementary profiles.
+
+Names and district information are source-linked factual catalogue entries, not verification of current hotel operations. This is an expandable directory, not a claim of complete coverage. Existing community corrections and reviews take precedence over catalogue defaults. `mergeCatalog()` adds missing profiles to already-saved data; updating `initialState()` alone would not update the deployed snapshot. Moderator removals have persistent tombstones so imports cannot resurrect deleted profiles.
+
+The refreshed interface removes decorative Unicode glyphs that iOS rendered as colored emojis, replacing them with Lucide SVG icons. Hotel cards are compact text-and-icon records rather than invented hotel illustrations. Search ignores accents and dotless Turkish ı, region counts are dynamic, and the directory loads 24 records at a time.
 
 ## Operator setup before a public launch
 
