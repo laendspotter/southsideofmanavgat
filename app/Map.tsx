@@ -1,0 +1,15 @@
+'use client';
+import {useEffect,useRef,useState} from 'react';
+import type {Line} from '@/lib/model';
+import type L from 'leaflet';
+export type Point={lat:number;lng:number;name:string};
+const colors=['#067a73','#de7845','#635ac5','#267cbd','#af4a6b'];
+const noPoints:Point[]=[];
+export default function Map({lines,selected,onSelect,editing=false,points=noPoints,onPoint}:{lines:Line[];selected?:string;onSelect?:(id:string)=>void;editing?:boolean;points?:Point[];onPoint?:(p:Point)=>void}){
+ const container=useRef<HTMLDivElement>(null),map=useRef<L.Map|null>(null),layer=useRef<L.LayerGroup|null>(null),api=useRef<typeof L|null>(null);
+ const [ready,setReady]=useState(false);const props=useRef({onPoint,onSelect,editing,points});props.current={onPoint,onSelect,editing,points};
+ useEffect(()=>{let cancelled=false;import('leaflet').then(mod=>{if(cancelled||!container.current)return;const leaflet=mod.default;api.current=leaflet;const m=leaflet.map(container.current,{scrollWheelZoom:false}).setView([36.797,31.340],12);map.current=m;leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:19}).addTo(m);layer.current=leaflet.layerGroup().addTo(m);m.on('click',(e:L.LeafletMouseEvent)=>{if(props.current.editing)props.current.onPoint?.({lat:Number(e.latlng.lat.toFixed(6)),lng:Number(e.latlng.lng.toFixed(6)),name:'punkt '+(props.current.points.length+1)})});setReady(true);});return()=>{cancelled=true;map.current?.remove();map.current=null;};},[]);
+ useEffect(()=>{if(!ready||!layer.current||!api.current)return;const leaflet=api.current;layer.current.clearLayers();lines.forEach((line,i)=>{const active=!selected||selected===line.id;leaflet.polyline(line.points.map(p=>[p.lat,p.lng]),{color:colors[i%colors.length],weight:selected===line.id?7:5,opacity:active?.95:.3}).addTo(layer.current!).on('click',()=>props.current.onSelect?.(line.id));line.points.forEach(p=>{const label=document.createElement('span');label.textContent=p.name;leaflet.circleMarker([p.lat,p.lng],{radius:4,color:colors[i%colors.length],fillColor:'white',fillOpacity:1,weight:2}).addTo(layer.current!).bindTooltip(label)})});points.forEach((p,i)=>{const label=document.createElement('span');label.textContent=`${i+1}. ${p.name}`;leaflet.circleMarker([p.lat,p.lng],{radius:7,color:'#de7845',fillOpacity:1}).addTo(layer.current!).bindTooltip(label)});if(points.length>1)leaflet.polyline(points.map(p=>[p.lat,p.lng]),{color:'#de7845',dashArray:'6 7'}).addTo(layer.current!);map.current?.invalidateSize();},[ready,lines,selected,points]);
+ useEffect(()=>{if(!ready||!selected)return;const line=lines.find(l=>l.id===selected);if(line)map.current?.fitBounds(line.points.map(p=>[p.lat,p.lng]),{padding:[35,35],maxZoom:15});},[ready,selected,lines]);
+ return <div className={'map '+(editing?'map-edit':'')}><div ref={container} className="map-inner"/><span className="map-caption">{editing?'in die karte tippen → routenpunkt setzen':'community-routen · kein offizieller linienplan'}</span></div>
+}

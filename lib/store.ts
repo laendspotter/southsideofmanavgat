@@ -1,0 +1,5 @@
+import { get,put,BlobPreconditionFailedError } from '@vercel/blob';
+import { initialState,AppError,type State } from './model';
+const path='community/state-v1.json';
+export async function readState(){const result=await get(path,{access:'private',useCache:false});if(!result)return {state:initialState(),etag:undefined};if(result.statusCode!==200)throw new AppError('speicher gerade nicht verfügbar.',503);return {state:await new Response(result.stream).json() as State,etag:result.blob.etag};}
+export async function updateState(fn:(state:State)=>State){for(let attempt=0;attempt<4;attempt++){const {state,etag}=await readState();const updated=fn(state);try{await put(path,JSON.stringify(updated),{access:'private',contentType:'application/json',addRandomSuffix:false,allowOverwrite:!!etag,...(etag?{ifMatch:etag}:{})});return updated;}catch(error){if(error instanceof BlobPreconditionFailedError||(!etag&&error instanceof Error&&/already exists/i.test(error.message)))continue;throw error;}}throw new AppError('gleichzeitige änderung. bitte erneut speichern.',409);}
